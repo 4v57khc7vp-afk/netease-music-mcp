@@ -21,6 +21,11 @@ import {
   listOwnPlaylists,
   removeSongsFromPlaylist,
 } from './playlist.js';
+import {
+  getListenTogetherRoomStatus,
+  joinListenTogetherRoom,
+  leaveListenTogetherRoom,
+} from './listen-together.js';
 
 function success(data) {
   return {
@@ -264,6 +269,73 @@ export function createNeteaseMcpServer({ authInfo, accountContext } = {}) {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async () => guarded('player:control', getListenTogetherCapabilities),
+  );
+
+  server.registerTool(
+    'netease_listen_together_status',
+    {
+      title: '查看云端一起听房间状态',
+      description:
+        '使用已连接的网易云账号读取当前一起听房间、连接状态和房间成员。',
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async () =>
+      guarded('player:control', () =>
+        getListenTogetherRoomStatus(accountOptions),
+      ),
+  );
+
+  server.registerTool(
+    'netease_listen_together_join',
+    {
+      title: '加入网易云一起听房间',
+      description:
+        '通过网易云官方邀请链接加入一起听房间。若账号已在其他房间，只有 leaveCurrentRoom=true 时才会切换。',
+      inputSchema: z.object({
+        inviteUrl: z
+          .string()
+          .url()
+          .max(2048)
+          .describe('163cn.tv 短链接或 st.music.163.com 完整邀请链接'),
+        leaveCurrentRoom: z.boolean().default(false),
+        confirm: z.literal(true).describe('用户已明确邀请当前账号加入该房间'),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: true,
+      },
+    },
+    async ({ inviteUrl, leaveCurrentRoom }) =>
+      guarded('player:control', () =>
+        joinListenTogetherRoom(inviteUrl, {
+          ...accountOptions,
+          leaveCurrentRoom,
+        }),
+      ),
+  );
+
+  server.registerTool(
+    'netease_listen_together_leave',
+    {
+      title: '退出网易云一起听房间',
+      description: '让当前已连接的网易云账号退出所在的一起听房间。',
+      inputSchema: z.object({
+        confirm: z.literal(true).describe('用户已明确要求退出当前房间'),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: true,
+      },
+    },
+    async () =>
+      guarded('player:control', () =>
+        leaveListenTogetherRoom(accountOptions),
+      ),
   );
 
   server.registerTool(
