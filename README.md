@@ -45,6 +45,8 @@
 - `netease_playlist_add_songs`：添加歌曲到指定歌单。
 - `netease_playlist_remove_songs`：从指定歌单移除歌曲。
 - `netease_listen_together_capabilities`：报告当前设备的一起听能力。
+- `netease_now_playing`：读取备用安卓机上报的歌曲、进度、暂停状态与当前歌词行。
+- `netease_playback_events`：读取按顺序记录的切歌事件。
 
 ### macOS 本地适配器
 
@@ -139,6 +141,16 @@ export NETEASE_PERSONAL_ORIGIN=https://music.your-domain.example
 docker compose run --rm netease-mcp npm run init:personal -- /data
 docker compose up -d
 ```
+
+## Android 播放状态伴侣
+
+`android-companion/` 提供一个最小 Android 工程。它通过系统 MediaSession
+读取网易云当前歌曲、进度和播放状态，再使用仅含 `player:control` 权限的
+个人 Token 上报到 `/api/v1/playback/state`。服务器据此生成切歌事件，
+并按歌曲 ID 获取 LRC、计算当前歌词行。
+
+伴侣不接收网易云账号密码或 Cookie。安装和授权步骤见
+[`android-companion/README.md`](android-companion/README.md)。
 
 ## 远程 HTTP 与手机连接
 
