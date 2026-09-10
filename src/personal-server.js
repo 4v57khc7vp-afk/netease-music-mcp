@@ -13,6 +13,7 @@ import {
 } from '@modelcontextprotocol/server';
 
 import { PersonalAuthStore, parseMasterKey } from './personal-store.js';
+import { PlaybackService } from './playback-service.js';
 import { createNeteaseMcpServer } from './mcp-server.js';
 import { getLyrics, getSongDetails, searchSongs } from './netease.js';
 import {
@@ -407,6 +408,7 @@ export async function createPersonalNeteaseServer({
   canonicalOrigin.hash = '';
 
   await store.initialize();
+  const playbackService = new PlaybackService({ searchSongs, getLyrics });
   const originString = canonicalOrigin.href.replace(/\/$/, '');
   const resource = `${originString}/mcp`;
   const metadataUrl = getOAuthProtectedResourceMetadataUrl(new URL(resource));
@@ -451,6 +453,8 @@ export async function createPersonalNeteaseServer({
           ? {
               getSessionConfiguration: () => store.getNeteaseSessionStatus(userId),
               loadNeteaseSession: () => store.loadNeteaseSession(userId),
+              getNowPlaying: (options) => playbackService.nowPlaying(options),
+              getPlaybackEvents: (options) => playbackService.events(options),
             }
           : undefined,
       });
@@ -943,8 +947,17 @@ export async function createPersonalNeteaseServer({
         const musicMatch = pathname.match(/^\/api\/v1\/lyrics\/(\d{1,20})$/);
         const tracksMatch = pathname.match(/^\/api\/v1\/playlists\/(\d{1,20})\/tracks$/);
         let authInfo;
-        if (pathname === '/api/v1/search' || pathname === '/api/v1/song-details' || musicMatch) {
+        if (
+          pathname === '/api/v1/search' ||
+          pathname === '/api/v1/song-details' ||
+          pathname === '/api/v1/playback/events' ||
+          (pathname === '/api/v1/playback/state' && request.method === 'GET') ||
+          musicMatch
+        ) {
           authInfo = await requireApiAuth(request, response, ['music:read']);
+          if (!authInfo) return;
+        } else if (pathname === '/api/v1/playback/state' && request.method === 'POST') {
+          authInfo = await requireApiAuth(request, response, ['player:control']);
           if (!authInfo) return;
         } else if (pathname === '/api/v1/playlists' && request.method === 'GET') {
           authInfo = await requireApiAuth(request, response, ['playlist:read']);
@@ -965,6 +978,34 @@ export async function createPersonalNeteaseServer({
         }
         if (musicMatch && request.method === 'GET') {
           json(response, 200, await getLyrics(musicMatch[1]), routeCors);
+          return;
+        }
+        if (pathname === '/api/v1/playback/state' && request.method === 'POST') {
+          const body = await readJson(request);
+          json(response, 200, await playbackService.report(body), routeCors);
+          return;
+        }
+        if (pathname === '/api/v1/playback/state' && request.method === 'GET') {
+          json(
+            response,
+            200,
+            await playbackService.nowPlaying({
+              includeFullLyrics: incoming.searchParams.get('fullLyrics') === 'true',
+            }),
+            routeCors,
+          );
+          return;
+        }
+        if (pathname === '/api/v1/playback/events' && request.method === 'GET') {
+          json(
+            response,
+            200,
+            playbackService.events({
+              afterSequence: Number(incoming.searchParams.get('afterSequence') ?? 0),
+              limit: Number(incoming.searchParams.get('limit') ?? 20),
+            }),
+            routeCors,
+          );
           return;
         }
         if (pathname === '/api/v1/playlists' && request.method === 'GET') {
