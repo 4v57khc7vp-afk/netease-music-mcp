@@ -78,6 +78,7 @@ test('publishes OAuth discovery and challenges anonymous MCP clients', async () 
     assert.match(challenge, /music:read/);
     assert.match(challenge, /playlist:read/);
     assert.match(challenge, /playlist:write/);
+    assert.match(challenge, /player:control/);
   });
 });
 
