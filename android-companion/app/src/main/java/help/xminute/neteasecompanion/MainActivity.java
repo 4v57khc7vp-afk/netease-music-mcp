@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.text.InputType;
 import android.view.ViewGroup;
@@ -23,6 +25,15 @@ public final class MainActivity extends Activity {
     private EditText server;
     private EditText token;
     private TextView status;
+    private final Handler statusHandler = new Handler(Looper.getMainLooper());
+    private final Runnable refreshStatus = new Runnable() {
+        @Override public void run() {
+            if (status != null) {
+                status.setText("状态：" + getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_STATUS, "等待播放"));
+            }
+            statusHandler.postDelayed(this, 1_000);
+        }
+    };
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -67,7 +78,13 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        if (status != null) status.setText("状态：" + getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_STATUS, "等待播放"));
+        statusHandler.removeCallbacks(refreshStatus);
+        statusHandler.post(refreshStatus);
+    }
+
+    @Override protected void onPause() {
+        statusHandler.removeCallbacks(refreshStatus);
+        super.onPause();
     }
 
     private void save() {

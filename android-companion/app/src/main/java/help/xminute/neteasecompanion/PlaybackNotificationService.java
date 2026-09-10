@@ -21,12 +21,13 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class PlaybackNotificationService extends NotificationListenerService {
     private static final Pattern NUMERIC_ID = Pattern.compile("(?:^|[^0-9])(\\d{5,20})(?:$|[^0-9])");
-    private static final long REPORT_INTERVAL_MS = 1_000;
+    private static final long REPORT_INTERVAL_MS = 2_000;
 
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private HandlerThread workerThread;
@@ -34,6 +35,7 @@ public final class PlaybackNotificationService extends NotificationListenerServi
     private MediaSessionManager sessions;
     private MediaController controller;
     private String deviceId;
+    private final AtomicBoolean requestInFlight = new AtomicBoolean(false);
     private final MediaSessionManager.OnActiveSessionsChangedListener sessionListener = this::selectController;
 
     @Override public void onListenerConnected() {
@@ -63,14 +65,26 @@ public final class PlaybackNotificationService extends NotificationListenerServi
     }
 
     private void selectController(List<MediaController> active) {
-        controller = null;
+        MediaController best = null;
+        int bestScore = Integer.MIN_VALUE;
         for (MediaController candidate : active) {
             String name = candidate.getPackageName().toLowerCase();
             if (name.contains("netease") || name.contains("cloudmusic")) {
-                controller = candidate;
-                break;
+                PlaybackState state = candidate.getPlaybackState();
+                MediaMetadata metadata = candidate.getMetadata();
+                int score = metadata == null ? 0 : 10;
+                if (state != null) {
+                    if (state.getState() == PlaybackState.STATE_PLAYING) score += 300;
+                    else if (state.getState() == PlaybackState.STATE_BUFFERING) score += 200;
+                    else if (state.getState() == PlaybackState.STATE_PAUSED) score += 100;
+                }
+                if (score > bestScore) {
+                    best = candidate;
+                    bestScore = score;
+                }
             }
         }
+        controller = best;
     }
 
     private final Runnable reportLoop = new Runnable() {
@@ -81,6 +95,9 @@ public final class PlaybackNotificationService extends NotificationListenerServi
     };
 
     private void report() throws Exception {
+        if (sessions != null) {
+            selectController(sessions.getActiveSessions(new ComponentName(this, getClass())));
+        }
         MediaController current = controller;
         if (current == null) {
             if (sessions != null) selectController(sessions.getActiveSessions(new ComponentName(this, getClass())));
@@ -114,6 +131,7 @@ public final class PlaybackNotificationService extends NotificationListenerServi
         String base = prefs.getString(MainActivity.KEY_SERVER, "");
         String token = prefs.getString(MainActivity.KEY_TOKEN, "");
         if (!base.startsWith("https://") || token.isEmpty()) return;
+        if (!requestInFlight.compareAndSet(false, true)) return;
         network.execute(() -> {
             HttpURLConnection connection = null;
             try {
@@ -132,6 +150,7 @@ public final class PlaybackNotificationService extends NotificationListenerServi
                 setStatus("上报失败：" + error.getClass().getSimpleName());
             } finally {
                 if (connection != null) connection.disconnect();
+                requestInFlight.set(false);
             }
         });
     }
