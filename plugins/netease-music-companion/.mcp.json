@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "netease-music": {
+      "type": "http",
+      "url": "https://music.xminute.help/mcp",
+      "auth": "oauth"
+    }
+  }
+}

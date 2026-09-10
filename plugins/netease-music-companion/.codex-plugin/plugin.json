@@ -1,0 +1,29 @@
+{
+  "name": "netease-music-companion",
+  "version": "0.1.0",
+  "description": "Connect ChatGPT and Codex to a private NetEase Music account and Listen Together rooms.",
+  "author": {
+    "name": "晚河",
+    "url": "https://github.com/4v57khc7vp-afk"
+  },
+  "homepage": "https://music.xminute.help",
+  "repository": "https://github.com/4v57khc7vp-afk/netease-music-mcp",
+  "license": "MIT",
+  "keywords": ["netease-music", "listen-together", "mcp"],
+  "interface": {
+    "displayName": "网易云音乐伴侣",
+    "shortDescription": "搜歌、整理歌单，并加入你的一起听房间。",
+    "longDescription": "连接晚河的私人网易云音乐 MCP 服务，在 ChatGPT 与 Codex 中搜索歌曲、读取歌词、管理歌单，并通过官方邀请链接加入或退出一起听房间。",
+    "developerName": "晚河",
+    "category": "Lifestyle",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "websiteURL": "https://music.xminute.help",
+    "defaultPrompt": [
+      "查看网易云账号和一起听状态。",
+      "搜索一首歌并读取歌词。",
+      "打开邀请链接，加入我的一起听房间。"
+    ],
+    "brandColor": "#EC4141"
+  },
+  "mcpServers": "./.mcp.json"
+}
