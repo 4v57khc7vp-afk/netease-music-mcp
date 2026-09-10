@@ -179,6 +179,47 @@ export function createNeteaseMcpServer({ authInfo, accountContext } = {}) {
   );
 
   server.registerTool(
+    'netease_now_playing',
+    {
+      title: '读取备用机当前播放',
+      description:
+        '读取安卓播放伴侣最近上报的歌名、歌手、歌曲 ID、播放进度、暂停状态以及当前歌词位置。',
+      inputSchema: z.object({
+        includeFullLyrics: z.boolean().default(false).describe('是否同时返回完整 LRC 歌词'),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ includeFullLyrics }) =>
+      guarded('music:read', () => {
+        if (!accountContext?.getNowPlaying) {
+          throw new Error('当前服务未配置安卓播放状态伴侣。');
+        }
+        return accountContext.getNowPlaying({ includeFullLyrics });
+      }),
+  );
+
+  server.registerTool(
+    'netease_playback_events',
+    {
+      title: '读取备用机切歌事件',
+      description:
+        '按顺序读取安卓播放伴侣捕获的切歌事件，包含切换前后的歌曲和事件时间。',
+      inputSchema: z.object({
+        afterSequence: z.number().int().min(0).default(0),
+        limit: z.number().int().min(1).max(100).default(20),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ afterSequence, limit }) =>
+      guarded('music:read', () => {
+        if (!accountContext?.getPlaybackEvents) {
+          throw new Error('当前服务未配置安卓播放状态伴侣。');
+        }
+        return accountContext.getPlaybackEvents({ afterSequence, limit });
+      }),
+  );
+
+  server.registerTool(
     'netease_search',
     {
       title: '搜索网易云歌曲',
