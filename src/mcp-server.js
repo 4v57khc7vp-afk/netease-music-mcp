@@ -328,11 +328,41 @@ export function createNeteaseMcpServer({ authInfo, accountContext } = {}) {
   );
 
   server.registerTool(
+    'netease_listen_together_send_to_companion',
+    {
+      title: '发送一起听邀请到安卓伴侣',
+      description:
+        '把网易云一起听邀请发送到已连接的安卓伴侣并弹出一次点击通知。不会让服务器账号提前占用邀请；使用安卓伴侣时应优先调用本工具。',
+      inputSchema: z.object({
+        inviteUrl: z
+          .string()
+          .url()
+          .max(2048)
+          .describe('163cn.tv 短链接或 st.music.163.com 完整邀请链接'),
+        confirm: z.literal(true).describe('用户已明确希望在备用安卓机上收到加入通知'),
+      }),
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ inviteUrl }) =>
+      guarded('player:control', () => {
+        if (!accountContext?.queueCompanionInvite) {
+          throw new Error('当前服务未配置安卓播放伴侣邀请通道。');
+        }
+        return accountContext.queueCompanionInvite(inviteUrl);
+      }),
+  );
+
+  server.registerTool(
     'netease_listen_together_join',
     {
       title: '加入网易云一起听房间',
       description:
-        '通过网易云官方邀请链接加入一起听房间。若账号已在其他房间，只有 leaveCurrentRoom=true 时才会切换。',
+        '仅在云端账号直接加入一起听房间，不会驱动安卓网易云客户端。使用安卓播放伴侣时应改用 netease_listen_together_send_to_companion，避免提前占用邀请。若账号已在其他房间，只有 leaveCurrentRoom=true 时才会切换。',
       inputSchema: z.object({
         inviteUrl: z
           .string()

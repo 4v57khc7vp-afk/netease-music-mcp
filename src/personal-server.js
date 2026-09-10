@@ -13,6 +13,7 @@ import {
 } from '@modelcontextprotocol/server';
 
 import { PersonalAuthStore, parseMasterKey } from './personal-store.js';
+import { CompanionInviteQueue } from './companion-invite.js';
 import { PlaybackService } from './playback-service.js';
 import { createNeteaseMcpServer } from './mcp-server.js';
 import { getLyrics, getSongDetails, searchSongs } from './netease.js';
@@ -409,6 +410,7 @@ export async function createPersonalNeteaseServer({
 
   await store.initialize();
   const playbackService = new PlaybackService({ searchSongs, getLyrics });
+  const companionInvites = new CompanionInviteQueue();
   const originString = canonicalOrigin.href.replace(/\/$/, '');
   const resource = `${originString}/mcp`;
   const metadataUrl = getOAuthProtectedResourceMetadataUrl(new URL(resource));
@@ -455,6 +457,7 @@ export async function createPersonalNeteaseServer({
               loadNeteaseSession: () => store.loadNeteaseSession(userId),
               getNowPlaying: (options) => playbackService.nowPlaying(options),
               getPlaybackEvents: (options) => playbackService.events(options),
+              queueCompanionInvite: (inviteUrl) => companionInvites.enqueue(userId, inviteUrl),
             }
           : undefined,
       });
@@ -956,7 +959,10 @@ export async function createPersonalNeteaseServer({
         ) {
           authInfo = await requireApiAuth(request, response, ['music:read']);
           if (!authInfo) return;
-        } else if (pathname === '/api/v1/playback/state' && request.method === 'POST') {
+        } else if (
+          (pathname === '/api/v1/playback/state' && request.method === 'POST') ||
+          (pathname === '/api/v1/companion/invite' && request.method === 'GET')
+        ) {
           authInfo = await requireApiAuth(request, response, ['player:control']);
           if (!authInfo) return;
         } else if (pathname === '/api/v1/playlists' && request.method === 'GET') {
@@ -1004,6 +1010,15 @@ export async function createPersonalNeteaseServer({
               afterSequence: Number(incoming.searchParams.get('afterSequence') ?? 0),
               limit: Number(incoming.searchParams.get('limit') ?? 20),
             }),
+            routeCors,
+          );
+          return;
+        }
+        if (pathname === '/api/v1/companion/invite' && request.method === 'GET') {
+          json(
+            response,
+            200,
+            companionInvites.getPending(userId, incoming.searchParams.get('after') ?? ''),
             routeCors,
           );
           return;
