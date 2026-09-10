@@ -1,13 +1,16 @@
 package help.xminute.neteasecompanion;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.content.pm.PackageManager;
 import android.text.InputType;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -71,6 +74,11 @@ public final class MainActivity extends Activity {
         permission.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));
         root.addView(permission, matchWrap());
 
+        Button inviteNotifications = new Button(this);
+        inviteNotifications.setText("允许一起听邀请通知");
+        inviteNotifications.setOnClickListener(v -> requestInviteNotifications());
+        root.addView(inviteNotifications, matchWrap());
+
         status = text("状态：" + prefs.getString(KEY_STATUS, "等待配置"), 14);
         root.addView(status);
         setContentView(root);
@@ -103,6 +111,15 @@ public final class MainActivity extends Activity {
             .putString(KEY_TOKEN, secret)
             .apply();
         Toast.makeText(this, "已保存，播放网易云歌曲后会自动上报", Toast.LENGTH_LONG).show();
+    }
+
+    private void requestInviteNotifications() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1001);
+            return;
+        }
+        Toast.makeText(this, "一起听邀请通知已可用", Toast.LENGTH_SHORT).show();
     }
 
     private TextView text(String value, int sp) {
